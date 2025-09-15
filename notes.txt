@@ -1,0 +1,132 @@
+Notes:
+    -since the Index Register and Program Counter can only address 12 bits, the memory only needs to hold 4096 addresses
+        -therefore, you need at least 12 bits for the addresses (but I think in practice the addresses are 16 bits?)
+    -RAM: each slot holds 1 byte but instructions are 2 bytes so instructions are stored in successive addresses
+        -so in practice this limits the maximum number of instructions that can be in a file (4096 / 2 = 2048)
+    -both timers (Delay Timer and Sound Timer) should decrement at 60 Hz, independent of the fetch -> decode -> execute loop
+    -there's variability in instructions processed per second speed:
+        -if I want the most accuracy, then I'll have to use the table of instruction processing speeds
+        -a good compromise number seems to 700 instructions per second
+        -regardless, it's probably a good idea to make this configurable (maybe in range 500 -> 900?)
+    -implement the following instructions first:
+        -00E0: clear screen
+        -1NNN: jump
+        -6XNN: set register vx
+        -7XNN: add value to register vx
+        -ANNN: set index register I
+        -DXYN: display/draw
+    -the opcodes (instructions) are 2 bytes long, therefore a good data type to represent them is an unsigned short
+    -the RAM is 4096 slots with space for 1 byte in each slot, so we can use unsigned char array of 4096 length
+    -each register is 1 byte so we can use an unsigned char array of length 16 for the registers
+    -Index Register (I) and Program Counter (PC) can be unsigned shorts (because they're 16 bits although they only need 12 bits technically)
+    -display can be represented as a 1 dimensional array of unsigned chars (just use the lowest order bit) of length 2048
+        -could use bools instead?
+    -the two timers can be unsigned chars
+    -start by getting IBM logo program to work (search "chip-8 ibm logo")
+      -once this is working use other test ROMs to check implementation of other instructions as I go along
+        -2 main ones:
+           -BonCoder/BestCoder test (BC_test)
+           -corax89's chip8-test-rom
+    -Troubleshooting:
+        -should add some rudimentary debugging:
+            -be able to step through instructions one by one, pausing the regular loop
+            -be able to print the contents of the registers and memory
+            -print out an error message if an unknown instruction is encountered
+    -instructions list:
+        -*0NNN: exectue machine language routine
+            -don't implement (would pause CHIP-8 program and call host machine instruction)
+        -00E0: clear screen
+            -turn all pixels off
+        -1NNN: jump
+            -set Program Counter to NNN, causing program to jump to that memory location
+            -do NOT increment PC afterwards
+        -00EE & 2NNN: Subroutines
+            -2NNN call subroutine at memory location NNN
+                -first push current PC to the Stack (so routine can return)
+                -then, just like 1NNN, set PC to NNN
+            -0EEE returns from the subroutine
+                -does this by popping the last address from the Stack and setting the PC to it
+        -3XNN, 4XNN, 5XY0, & 9XY0: skip conditionally
+            -all these instruction do the same thing:
+                -do nothing or...
+                -skip one 2 byte instruction (increment PC by 2) if some condition is true
+            -3XNN: skip 1 instruction if the value in vx is equal to NN
+            -4XNN: skip 1 instruction if the value in vx is NOT equal to NN
+            -5XY0: skip 1 instruction if the values in vx and xy are equal
+            -9XY0: skip 1 instruction if the values in vx and xy are NOT equal
+        -6XNN: set the register vx to the value NN
+        -7XNN: add the value NN to vx
+            -ignore any overflow
+        -8XY0: set vx to the value of vy
+        -8XY1: set vx to the bitwise OR of vx and vy
+        -8XY2: set vx to the bitwise AND of vx and vy
+        -8XY3: set vx to the bitwise XOR of vx and vy
+        -8XY4: set vx to the sum of vx and vy
+            -this addition WILL carry (affecting the carry flag)
+            -if the sum is larger than 255 (overflow) the vf flag register is set to 1, otherwise it's set to 0
+        -8XY5: set vx to the result of vx - vy
+            -if the first operand is larger than the second, vf will be set to 1
+            -if the second operand is larger than the first, vf will be set to 0
+        -8XY7: set vx to the result of vy - vx
+            -if the first operand is larger than the second, vf will be set to 1
+            -if the second operand is larger than the first, vf will be set to 0
+        -8XY6: right shift vx one bit
+            -(configurable) set vx to value of vy
+                -this part should be configurable because this behavior varied and some programs may expect and others may not
+            -set vf to the value of the bit that was shifted out
+        -8XYE: left shift vx one bit
+            -(configurable) set vx to value of vy
+                -this part should be configurable because this behavior varied and some programs may expect and others may not
+                -set vf to the value of the bit that was shifted out
+        -ANNN: set I (index register) to value of NNN
+        -BNNN: jump to address NNN plus the value in the register v0
+            -(configurable) allow for switch to BXNN behavior
+                -jump to address XNN plus the value of vx
+        -CXNN: set vx to the bitwise AND of a random number and value NN
+        -DXYN: display
+            -draw an N pixels tall sprite from memory location that the I (index) register is holding to the screen
+                -draw at the horizontal X coordinate in vx and the Y coordinate in vy
+            -all the pixels that are "on" in the sprite will flip the pixels on the screen that it is drawn to
+                -from left to right, from most to least significant bit
+                -if any pixels on the screen were turned "off" by this process, the vf register is set to 1 (otherwise 0)
+            -if the sprite is drawn near the edge of the screen, it should be clipped and not wrap
+        -EX9E: skip one instruction (increment PC by 2) if key corresponding to the value in vx is pressed
+            -valid key values are 0->F (hexadecimal)
+        -EXA1: skip one instruction if the key corresponding to the value in vx is NOT pressed
+            -valid key values are 0->F (hexadecimal)
+        -FX07: set vx to the current value of the Delay Timer
+        -FX15: set the Delay Timer to the value of vx
+        -FX18: set the Sound Timer to the value in vx
+        -FX1E: increment I (index) register by value in vx
+            -in case of overflow, set vf to 1 (should be safe although this behavior didn't happen on some interpreters)
+        -FX0A: stop executing instructions and wait for key input
+            -in other words, if a key is not pressed, decrement the PC (putting it back to the previous instruction)
+                -prevent the PC from incrementing overall
+            -the Timers should still be decreased even though instructions are "paused"
+            -put the eventual keypress (hex value) in vx and continue execution
+        -FX29: set I (index) register to the address of the hexadecimal character in vx
+            -font stored somewhere in the first 512 bytes of memory
+            -take the lower 4 bits of the 8 bit vx register to determine the character to point to
+        -FX33: convert value in vx to a 3 digit decimal equivalent
+            -store the 3 digits (most significant to least) in the addresses I, I + 1, and I + 2
+        -FX55: store the value of the variable registers from v0 to vx (if x is 0, then just v0)
+            -store in successive memory addresses starting with I (index) register
+            -possibly make configurable to support "old" behavior of incrementing I
+                -thus I ends up being set to the new value I + x + 1
+                -this behavior causes test ROMs to fail
+        -FX65: load the values of I to I + x into the variable registers (v0 to vx)
+            -possibly make configurable to support "old" behavior of incrementing I
+                -thus I ends up being set to the new value I + x + 1
+                -this behavior causes test ROMs to fail
+
+Questions:
+    -if the Delay Timer decrements to 0, what happens after it reaches 0?
+        -does it just stay at 0 or does it roll back around to its starting value?
+        -how is the timer used in CHIP-8 games?
+    -with regard to reading input from the keyboard, what is a scancode?
+    -how am I going to implement the debug interface?
+        -do I need to research using something like X11?
+
+TODO:
+    -follow bookmarked SDL tutorial to learn how to use that first
+    -use blackbox abstraction to get a handle on my inputs and outputs
