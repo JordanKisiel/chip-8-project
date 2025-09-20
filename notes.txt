@@ -4,6 +4,8 @@ Notes:
     -RAM: each slot holds 1 byte but instructions are 2 bytes so instructions are stored in successive addresses
         -so in practice this limits the maximum number of instructions that can be in a file (4096 / 2 = 2048)
     -both timers (Delay Timer and Sound Timer) should decrement at 60 Hz, independent of the fetch -> decode -> execute loop
+    -to load a ROM, read it as binary (one byte per memory 'slot') and then interpret it as hex to match the opcode
+    -instead of switch statement, it's probably a better practice to use a function pointer table
     -there's variability in instructions processed per second speed:
         -if I want the most accuracy, then I'll have to use the table of instruction processing speeds
         -a good compromise number seems to 700 instructions per second

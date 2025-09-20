@@ -6,13 +6,13 @@ CC = gcc
 
 #specify the additional compilation options
 # -w suppresses all warnings
-COMPILER_FLAGS = -w
+COMPILER_FLAGS = -w -g
 
 #specify the libraries we're linking against
 LINKER_FLAGS = -lSDL2
 
 #specify the name our executable
-OBJ_NAME = basic_window
+OBJ_NAME = basic_window 
 
 #target that compiles executable
 all : $(OBJS)
