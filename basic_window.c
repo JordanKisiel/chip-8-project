@@ -18,65 +18,51 @@ bool init(SDL_Window** window, SDL_Renderer** renderer);
 //fills an array with random boolean values
 void init_random_array(bool* buffer, int count);
 
+//draws rectangle representing pixels to the screen
+//depending on the boolean value of the display
+//array provided
+void render_display(SDL_Renderer* renderer, 
+                    bool display[], 
+                    SDL_Color bg, 
+                    SDL_Color fg);
+
 //destroys created objects before program closes
 bool cleanup(SDL_Window* window, SDL_Renderer* renderer);
 
 
 int main(int argc, char* args[]){
 
-    //**TODO**
-    //   -clean code up into functions
+    /*
+        *TODO:
+        *  -allow for colors (and other future settings)
+        *   to be done through config fill
+        *
+        *
+        *
+        * 
+    */
 
     SDL_Window* window = NULL;
-    //renderer to draw pixels
-    SDL_Renderer* renderer = NULL;
-    SDL_Event event;
-    srand(time(NULL)); //seed rng with current time
+    SDL_Renderer* renderer = NULL; //renderer does drawing
+    SDL_Event exit_event; //used to keep window open until exit event
     bool display[DISPLAY_WIDTH * DISPLAY_HEIGHT] = {false};
+    SDL_Color bg = {200, 200, 200, 255};
+    SDL_Color fg = {45, 45, 45, 255};
 
     bool init_success = init(&window, &renderer);
 
     if(init_success){
 
-        //fill window with white
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-        SDL_RenderClear(renderer);
-
-        
         init_random_array(display, DISPLAY_WIDTH * DISPLAY_HEIGHT);
 
-        //position to start drawing from
-        //to center the display pixels
-        int x_pos_start = (WINDOW_WIDTH / 2) - 
-                          ((DISPLAY_WIDTH * DISPLAY_PIXEL_SIZE) / 2);
-        int y_pos_start = (WINDOW_HEIGHT / 2) - 
-                          ((DISPLAY_HEIGHT * DISPLAY_PIXEL_SIZE) / 2);
+        render_display(renderer, display, bg, fg);
 
-        //set color of 'pixels' to black
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-
-        for(int i = 0; i < DISPLAY_WIDTH; i++){
-            for(int j = 0; j < DISPLAY_HEIGHT; j++){
-
-                //draw display
-                SDL_Rect rect = {.x = i * DISPLAY_PIXEL_SIZE, 
-                                 .y = j * DISPLAY_PIXEL_SIZE, 
-                                 .w = DISPLAY_PIXEL_SIZE, 
-                                 .h = DISPLAY_PIXEL_SIZE};
-
-                if(display[j + (i * DISPLAY_HEIGHT)]){
-                    SDL_RenderFillRect(renderer, &rect);
-                    SDL_RenderDrawRect(renderer, &rect);
-                }
-            }
-        }
-
-        //show drawing
+        //show display
         SDL_RenderPresent(renderer);
 
         //keep window open until exit
         while(true){
-            if(SDL_PollEvent(&event) && event.type == SDL_QUIT){
+            if(SDL_PollEvent(&exit_event) && exit_event.type == SDL_QUIT){
                 break;
             }
         }
@@ -84,7 +70,7 @@ int main(int argc, char* args[]){
 
     cleanup(window, renderer);
 
-    //Quit SDL subsystems
+    //quit SDL subsystems
     SDL_Quit();
 
     return 0;
@@ -134,10 +120,54 @@ bool init(SDL_Window** window, SDL_Renderer** renderer){
     return success;
 }
 
+
 void init_random_array(bool* buffer, int count){
     for(int i = 0; i < count; i++){
         int random_num = rand();
         buffer[i] = random_num > RAND_MAX / 2 ? true : false;
+    }
+}
+
+
+void render_display(SDL_Renderer* renderer, 
+                    bool display[], 
+                    SDL_Color bg, 
+                    SDL_Color fg){
+
+    //seed rng with current time
+    srand(time(NULL));
+
+    //render bg
+    //fill window with background color
+    SDL_SetRenderDrawColor(renderer, bg.r, bg.g, bg.b, bg.a);
+    SDL_RenderClear(renderer);
+
+    //position to start drawing from
+    //to center the display pixels
+    int x_pos_start = (WINDOW_WIDTH / 2) - 
+                      ((DISPLAY_WIDTH * DISPLAY_PIXEL_SIZE) / 2);
+    int y_pos_start = (WINDOW_HEIGHT / 2) - 
+                      ((DISPLAY_HEIGHT * DISPLAY_PIXEL_SIZE) / 2);
+
+    //set color of 'pixels' to foreground color
+    SDL_SetRenderDrawColor(renderer, fg.r, fg.g, fg.b, fg.a);
+
+    //draw a rectangle (representing a pixel)
+    //where ever the display has a true value
+    for(int i = 0; i < DISPLAY_WIDTH; i++){
+        for(int j = 0; j < DISPLAY_HEIGHT; j++){
+
+            //draw display
+            SDL_Rect rect = {.x = i * DISPLAY_PIXEL_SIZE, 
+                             .y = j * DISPLAY_PIXEL_SIZE, 
+                             .w = DISPLAY_PIXEL_SIZE, 
+                             .h = DISPLAY_PIXEL_SIZE};
+
+            if(display[j + (i * DISPLAY_HEIGHT)]){
+                SDL_RenderFillRect(renderer, &rect);
+                SDL_RenderDrawRect(renderer, &rect);
+            }
+        }
     }
 }
 
